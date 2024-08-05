@@ -7,7 +7,7 @@ from datasets import Dataset, load_metric
 from transformers import AutoTokenizer, T5ForConditionalGeneration
 # import matplotlib.pyplot as plt
 
-tokenizer = AutoTokenizer.from_pretrained("t5-small", model_max_length = 512)
+tokenizer = AutoTokenizer.from_pretrained("t5-small", model_max_length = 500)
 model = T5ForConditionalGeneration.from_pretrained("t5-small")
 
 def process_dataset(name):
@@ -16,7 +16,7 @@ def process_dataset(name):
     jsonl_data['output'] = jsonl_data['spoiler'].map(lambda x: ' /n/ '.join(x))
     jsonl_data['targetParagraphs'] = jsonl_data['targetParagraphs'].map(lambda x: '. '.join(x))
     jsonl_data['postText'] = jsonl_data['postText'].map(lambda x: x[0])
-    jsonl_data['input'] = jsonl_data['targetParagraphs'] + " " + jsonl_data['postText']
+    jsonl_data['input'] = jsonl_data['postText'] + " Target paragraphs: " + jsonl_data['targetParagraphs']
     dataset = Dataset.from_pandas(jsonl_data)
     dataset = dataset.map(lambda example:{"input_ids": tokenizer(example["input"], padding="max_length", truncation=True, max_length= 500, return_tensors="pt").input_ids, "labels": tokenizer(example["output"], padding="max_length", truncation=True, max_length= 100, return_tensors="pt").input_ids}
 , batched=True)
@@ -56,7 +56,7 @@ args = TrainingArguments(
     learning_rate=3e-5,
     weight_decay=0.02,
     warmup_steps=1000,
-    save_strategy="steps",
+    save_strategy="epoch",
     save_total_limit=3,
     fp16=True,
     gradient_checkpointing=True
@@ -88,7 +88,15 @@ trainer.add_callback(LogMetricsCallback())
 trainer.train()
 
 
-print(trainer.evaluate())
+m=trainer.evaluate()
+print(m)
+
+print(eval_metrics)
+
+best_model_checkpoint = trainer.state.best_model_checkpoint
+
+print(f"Best model checkpoint: {best_model_checkpoint}")
+
 
 # # Plot the metrics
 # steps, bleus = zip(*eval_metrics)
